@@ -1,17 +1,71 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useCollection } from "./hooks/useCollection";
 import { Dashboard, StampGrid } from "./components/Dashboard";
 import { teams, stamps, getStampsByTeam } from "./data";
+import { register, login, getMe } from "./api/client";
 
 type View = "dashboard" | "team";
 type Filter = "all" | "owned" | "missing";
 
 export default function App() {
-  const collection = useCollection();
+  const [userId, setUserId] = useState<number | null>(() => {
+    const saved = localStorage.getItem("panini-user");
+    return saved ? JSON.parse(saved).userId : null;
+  });
+  const [username, setUsername] = useState<string>(() => {
+    const saved = localStorage.getItem("panini-user");
+    return saved ? JSON.parse(saved).username : "";
+  });
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authUser, setAuthUser] = useState("");
+  const [authPass, setAuthPass] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [checking, setChecking] = useState(true);
+
+  const collection = useCollection(userId);
   const [view, setView] = useState<View>("dashboard");
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    // Verify stored token is valid
+    getMe().then((u) => {
+      if (u) {
+        setUserId(u.userId);
+        setUsername(u.username);
+      } else {
+        localStorage.removeItem("panini-user");
+        localStorage.removeItem("panini-token");
+        setUserId(null);
+        setUsername("");
+      }
+      setChecking(false);
+    });
+  }, []);
+
+  const handleAuth = async () => {
+    setAuthError("");
+    try {
+      const fn = authMode === "login" ? login : register;
+      const data = await fn(authUser, authPass);
+      localStorage.setItem("panini-token", data.token);
+      localStorage.setItem("panini-user", JSON.stringify({ userId: data.userId, username: data.username }));
+      setUserId(data.userId);
+      setUsername(data.username);
+      setAuthUser("");
+      setAuthPass("");
+    } catch (e: any) {
+      setAuthError(e.message);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("panini-user");
+    localStorage.removeItem("panini-token");
+    setUserId(null);
+    setUsername("");
+  };
 
   const searchedStamps = useMemo(() => {
     if (!search.trim()) return null;
@@ -19,7 +73,7 @@ export default function App() {
     return stamps.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
-        s.number.toString().includes(q) ||
+        s.code.toLowerCase().includes(q) ||
         teams.find((t) => t.id === s.teamId)?.name.toLowerCase().includes(q)
     );
   }, [search]);
@@ -29,6 +83,70 @@ export default function App() {
     setView("team");
     setFilter("all");
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-400">Cargando...</p>
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-sm border p-8 w-full max-w-sm">
+          <div className="text-center mb-6">
+            <span className="text-4xl">⚽</span>
+            <h1 className="font-black text-2xl text-gray-800 mt-2">Panini 2026</h1>
+            <p className="text-sm text-gray-500">Colección de Estampas</p>
+          </div>
+          <div className="flex gap-1 mb-4">
+            <button
+              onClick={() => setAuthMode("login")}
+              className={`flex-1 py-2 rounded text-sm font-medium transition-colors ${
+                authMode === "login" ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              Iniciar Sesión
+            </button>
+            <button
+              onClick={() => setAuthMode("register")}
+              className={`flex-1 py-2 rounded text-sm font-medium transition-colors ${
+                authMode === "register" ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              Registro
+            </button>
+          </div>
+          <div className="space-y-3">
+            <input
+              type="text"
+              value={authUser}
+              onChange={(e) => setAuthUser(e.target.value)}
+              placeholder="Usuario"
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
+            />
+            <input
+              type="password"
+              value={authPass}
+              onChange={(e) => setAuthPass(e.target.value)}
+              placeholder="Contraseña"
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
+              onKeyDown={(e) => e.key === "Enter" && handleAuth()}
+            />
+            {authError && <p className="text-red-500 text-xs">{authError}</p>}
+            <button
+              onClick={handleAuth}
+              className="w-full py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+            >
+              {authMode === "login" ? "Entrar" : "Crear cuenta"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -42,6 +160,13 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <span className="text-xs text-gray-400">{username}</span>
+            <button
+              onClick={handleLogout}
+              className="text-xs text-gray-500 hover:text-red-500 transition-colors"
+            >
+              Salir
+            </button>
             <div className="hidden sm:block text-right">
               <div className="text-sm text-gray-500">Progreso</div>
               <div className="font-bold text-green-600">{collection.progress}%</div>
@@ -64,19 +189,6 @@ export default function App() {
             }`}
           >
             Equipos
-          </button>
-          <button
-            onClick={() => {
-              setView("dashboard");
-              setFilter("all");
-            }}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-              view === "dashboard" && filter === "all"
-                ? "bg-green-600 text-white"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            Progreso
           </button>
           <div className="relative ml-auto">
             <input

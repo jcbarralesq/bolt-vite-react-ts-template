@@ -51,7 +51,8 @@ export function Dashboard({ owned, ownedCount, totalCount, progress, ownedByTeam
                 }`}
               >
                 <div className="text-2xl">{team.flag}</div>
-                <div className="font-semibold text-sm mt-1 text-gray-800 truncate">
+                <div className="text-xs font-mono text-gray-400 mt-1">{team.id}</div>
+                <div className="font-semibold text-sm text-gray-800 truncate">
                   {team.name}
                 </div>
                 <div className="text-xs text-gray-500">Grupo {team.group}</div>
@@ -98,6 +99,7 @@ export function StampGrid({ teamId, owned, onToggle, filter, onBack }: StampGrid
           ←
         </button>
         <h2 className="text-lg font-bold text-gray-800">
+          <span className="font-mono text-gray-400 mr-1">{teamStamps[0]?.teamId}</span>
           {teamStamps[0] ? `${teams.find((t) => t.id === teamId)?.flag} ${teams.find((t) => t.id === teamId)?.name}` : ""}
         </h2>
       </div>
