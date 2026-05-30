@@ -115,7 +115,7 @@ export default function App() {
                         : "border-gray-200 bg-white opacity-60 hover:opacity-100"
                     }`}
                   >
-                    <div className="text-xs font-mono text-gray-400">#{stamp.number}</div>
+                    <div className="text-xs font-mono text-gray-500">{stamp.code}</div>
                     <div className="text-xs text-gray-400">{team?.flag}</div>
                     <div className="font-medium text-sm mt-1 truncate">{stamp.name}</div>
                     <div className="text-xs text-gray-400 mt-1">{team?.name}</div>

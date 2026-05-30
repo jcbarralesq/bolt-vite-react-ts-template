@@ -1,6 +1,7 @@
 export interface Stamp {
   id: string;
   number: number;
+  code: string;
   name: string;
   teamId: string;
   rarity: "common" | "rare" | "legendary";

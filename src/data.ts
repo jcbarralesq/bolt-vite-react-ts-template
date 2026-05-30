@@ -106,15 +106,19 @@ let counter = 1;
 function buildStamps(): Stamp[] {
   const result: Stamp[] = [];
   for (const team of teams) {
+    let tNum = 0;
     // Badge
-    result.push({ id: `${team.id}-badge`, number: counter++, name: `Escudo ${team.name}`, teamId: team.id, rarity: "legendary" });
+    tNum++;
+    result.push({ id: `${team.id}-badge`, number: counter++, code: `${team.id}-${tNum}`, name: `Escudo ${team.name}`, teamId: team.id, rarity: "legendary" });
     // Team photo
-    result.push({ id: `${team.id}-photo`, number: counter++, name: `Foto ${team.name}`, teamId: team.id, rarity: "rare" });
+    tNum++;
+    result.push({ id: `${team.id}-photo`, number: counter++, code: `${team.id}-${tNum}`, name: `Foto ${team.name}`, teamId: team.id, rarity: "rare" });
     // 18 players
     const names = players[team.id] || [];
     for (let i = 0; i < names.length; i++) {
+      tNum++;
       const rarity: Stamp["rarity"] = i <= 1 ? "legendary" : i <= 4 ? "rare" : "common";
-      result.push({ id: `${team.id}-${i}`, number: counter++, name: names[i], teamId: team.id, rarity });
+      result.push({ id: `${team.id}-${i}`, number: counter++, code: `${team.id}-${tNum}`, name: names[i], teamId: team.id, rarity });
     }
   }
   return result;

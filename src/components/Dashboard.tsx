@@ -114,7 +114,7 @@ export function StampGrid({ teamId, owned, onToggle, filter, onBack }: StampGrid
                   : "border-gray-200 bg-white opacity-60 hover:opacity-100"
               } ${stamp.rarity === "legendary" && !isOwned ? "ring-2 ring-yellow-300" : ""}`}
             >
-              <div className="text-xs font-mono text-gray-400">#{stamp.number}</div>
+              <div className="text-xs font-mono text-gray-500">{stamp.code}</div>
               <div className="w-12 h-12 mx-auto my-2 rounded-full bg-gray-100 flex items-center justify-center">
                 {isOwned ? (
                   <span className="text-green-500 text-xl">✓</span>
