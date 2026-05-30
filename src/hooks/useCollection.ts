@@ -91,7 +91,7 @@ export function useCollection(userId: number | null) {
   const progress = stamps.length ? Math.round((uniqueOwned / stamps.length) * 100) : 0;
 
   const ownedByTeam = useCallback(
-    (teamId: string) => stamps.filter((s) => (owned[s.id]?.count || 0) > 0).length,
+    (teamId: string) => stamps.filter((s) => s.teamId === teamId && (owned[s.id]?.count || 0) > 0).length,
     [owned]
   );
 
