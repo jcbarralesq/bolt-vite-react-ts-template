@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 import pool from "../db.js";
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || "REDACTED_SECRET";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error("Missing required env var: JWT_SECRET");
 
 function getUserId(req: Request): number | null {
   const auth = req.headers.authorization;
