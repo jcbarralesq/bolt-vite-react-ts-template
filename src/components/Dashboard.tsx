@@ -112,23 +112,13 @@ export function StampGrid({ teamId, owned, onToggle, filter, onBack }: StampGrid
               onClick={() => onToggle(stamp.id)}
               className={`relative p-3 rounded-lg border-2 text-center transition-all hover:shadow-md ${
                 isOwned
-                  ? "border-green-400 bg-green-50 scale-95"
-                  : "border-gray-200 bg-white opacity-60 hover:opacity-100"
-              } ${stamp.rarity === "legendary" && !isOwned ? "ring-2 ring-yellow-300" : ""}`}
+                  ? "border-green-400 bg-green-50"
+                  : "border-gray-200 bg-white hover:bg-gray-50"
+              }`}
             >
-              <div className="text-xs font-mono text-gray-500">{stamp.code}</div>
-              <div className="w-12 h-12 mx-auto my-2 rounded-full bg-gray-100 flex items-center justify-center">
-                {isOwned ? (
-                  <span className="text-green-500 text-xl">✓</span>
-                ) : (
-                  <span className="text-gray-300 text-xl">?</span>
-                )}
-              </div>
-              <div className="font-medium text-sm text-gray-800 truncate">{stamp.name}</div>
-              <div className="text-xs mt-1">
-                {stamp.rarity === "legendary" && <span className="text-yellow-600 font-bold">⭐ Leyenda</span>}
-                {stamp.rarity === "rare" && <span className="text-purple-600 font-semibold">◆ Rara</span>}
-                {stamp.rarity === "common" && <span className="text-gray-400">Común</span>}
+              <div className="font-mono font-black text-lg text-gray-700 leading-tight">{stamp.teamId}</div>
+              <div className="font-mono font-black text-3xl text-gray-900 leading-tight">
+                {stamp.code.split("-")[1]}
               </div>
               {isOwned && (
                 <div className="absolute top-1 right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
