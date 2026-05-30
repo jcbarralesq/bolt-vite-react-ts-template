@@ -17,5 +17,5 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`API Panini 2026 running on port ${PORT}`);
+  console.log(`API FIFA World Cup 2026 running on port ${PORT}`);
 });

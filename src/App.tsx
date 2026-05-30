@@ -97,8 +97,8 @@ export default function App() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-sm border p-8 w-full max-w-sm">
           <div className="text-center mb-6">
-            <span className="text-4xl">⚽</span>
-            <h1 className="font-black text-2xl text-gray-800 mt-2">Panini 2026</h1>
+            <img src="https://paninicollection.fifa.com/assets/microsite/logo-136aaecd5815ceb1e5d0fee48d82371f65972c1f3fae6962f8c4e6122366b64d.png" alt="FIFA World Cup 2026" className="h-16 mx-auto" />
+            <h1 className="font-black text-2xl text-gray-800 mt-2">FIFA World Cup 2026</h1>
             <p className="text-sm text-gray-500">Colección de Estampas</p>
           </div>
           <div className="flex gap-1 mb-4">
@@ -153,9 +153,9 @@ export default function App() {
       <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">⚽</span>
+            <img src="https://paninicollection.fifa.com/assets/microsite/logo-136aaecd5815ceb1e5d0fee48d82371f65972c1f3fae6962f8c4e6122366b64d.png" alt="FIFA World Cup 2026" className="h-10" />
             <div>
-              <h1 className="font-black text-xl text-gray-800">Panini 2026</h1>
+              <h1 className="font-black text-xl text-gray-800">FIFA World Cup 2026</h1>
               <p className="text-xs text-gray-500">Copa Mundial de la FIFA</p>
             </div>
           </div>
@@ -306,7 +306,7 @@ export default function App() {
       </main>
 
       <footer className="text-center py-6 text-xs text-gray-400">
-        Panini 2026 · Copa Mundial de la FIFA · {collection.ownedCount}/{collection.totalCount} estampas
+        FIFA World Cup 2026 · Copa Mundial de la FIFA · {collection.ownedCount}/{collection.totalCount} estampas
       </footer>
     </div>
   );
