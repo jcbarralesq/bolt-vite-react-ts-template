@@ -22,10 +22,10 @@ router.get("/", async (req: Request, res: Response) => {
   if (!userId) { res.status(401).json({ error: "No autorizado" }); return; }
 
   try {
-    const [rows] = await pool.query("SELECT stamp_id, owned FROM user_stamps WHERE user_id = ?", [userId]);
-    const stamps: Record<string, boolean> = {};
+    const [rows] = await pool.query("SELECT stamp_id, count, exchanged FROM user_stamps WHERE user_id = ? AND count > 0", [userId]);
+    const stamps: Record<string, { count: number; exchanged: number }> = {};
     for (const r of rows as any[]) {
-      stamps[r.stamp_id] = r.owned === 1 || r.owned === true;
+      stamps[r.stamp_id] = { count: r.count, exchanged: r.exchanged };
     }
     res.json({ stamps });
   } catch (e: any) {
@@ -33,7 +33,7 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/toggle", async (req: Request, res: Response) => {
+router.post("/increment", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   if (!userId) { res.status(401).json({ error: "No autorizado" }); return; }
 
@@ -41,50 +41,87 @@ router.post("/toggle", async (req: Request, res: Response) => {
   if (!stampId) { res.status(400).json({ error: "stampId requerido" }); return; }
 
   try {
-    const [existing] = await pool.query("SELECT owned FROM user_stamps WHERE user_id = ? AND stamp_id = ?", [userId, stampId]);
-    const rows = existing as any[];
-
-    if (rows.length > 0) {
-      const newOwned = !rows[0].owned;
-      await pool.query("UPDATE user_stamps SET owned = ? WHERE user_id = ? AND stamp_id = ?", [newOwned, userId, stampId]);
-      res.json({ stampId, owned: newOwned });
-    } else {
-      await pool.query("INSERT INTO user_stamps (user_id, stamp_id, owned) VALUES (?, ?, ?)", [userId, stampId, true]);
-      res.json({ stampId, owned: true });
-    }
+    await pool.query(
+      `INSERT INTO user_stamps (user_id, stamp_id, count) VALUES (?, ?, 1)
+       ON DUPLICATE KEY UPDATE count = count + 1`,
+      [userId, stampId]
+    );
+    const [rows] = await pool.query("SELECT count, exchanged FROM user_stamps WHERE user_id = ? AND stamp_id = ?", [userId, stampId]);
+    const r = (rows as any[])[0];
+    res.json({ stampId, count: r.count, exchanged: r.exchanged });
   } catch (e: any) {
-    res.status(500).json({ error: "Error al actualizar" });
+    res.status(500).json({ error: "Error al incrementar" });
   }
 });
 
-router.post("/sync", async (req: Request, res: Response) => {
+router.post("/decrement", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   if (!userId) { res.status(401).json({ error: "No autorizado" }); return; }
 
-  const { stamps } = req.body as { stamps: string[] };
-  if (!stamps || !Array.isArray(stamps)) {
-    res.status(400).json({ error: "stamps array requerido" }); return;
-  }
+  const { stampId } = req.body;
+  if (!stampId) { res.status(400).json({ error: "stampId requerido" }); return; }
 
   try {
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-      await conn.query("DELETE FROM user_stamps WHERE user_id = ?", [userId]);
-      if (stamps.length > 0) {
-        const values = stamps.map(s => [userId, s, true]);
-        await conn.query("INSERT INTO user_stamps (user_id, stamp_id, owned) VALUES ?", [values]);
-      }
-      await conn.commit();
-      res.json({ ok: true, count: stamps.length });
-    } catch (e) {
-      await conn.rollback();
-      throw e;
-    } finally {
-      conn.release();
+    const [existing] = await pool.query("SELECT count FROM user_stamps WHERE user_id = ? AND stamp_id = ?", [userId, stampId]);
+    const rows = existing as any[];
+    if (rows.length === 0 || rows[0].count <= 1) {
+      await pool.query("DELETE FROM user_stamps WHERE user_id = ? AND stamp_id = ?", [userId, stampId]);
+      res.json({ stampId, count: 0, exchanged: 0 });
+    } else {
+      await pool.query("UPDATE user_stamps SET count = count - 1 WHERE user_id = ? AND stamp_id = ?", [userId, stampId]);
+      const [updated] = await pool.query("SELECT count, exchanged FROM user_stamps WHERE user_id = ? AND stamp_id = ?", [userId, stampId]);
+      const r = (updated as any[])[0];
+      res.json({ stampId, count: r.count, exchanged: r.exchanged });
     }
   } catch (e: any) {
-    res.status(500).json({ error: "Error al sincronizar" });
+    res.status(500).json({ error: "Error al decrementar" });
+  }
+});
+
+router.post("/exchange", async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  if (!userId) { res.status(401).json({ error: "No autorizado" }); return; }
+
+  const { stampId } = req.body;
+  if (!stampId) { res.status(400).json({ error: "stampId requerido" }); return; }
+
+  try {
+    const [existing] = await pool.query("SELECT count FROM user_stamps WHERE user_id = ? AND stamp_id = ?", [userId, stampId]);
+    const rows = existing as any[];
+    if (rows.length === 0 || rows[0].count < 1) {
+      res.status(400).json({ error: "No tienes esta estampa para intercambiar" }); return;
+    }
+
+    await pool.query(
+      "UPDATE user_stamps SET count = count - 1, exchanged = exchanged + 1 WHERE user_id = ? AND stamp_id = ?",
+      [userId, stampId]
+    );
+    // Clean up if count reached 0
+    await pool.query("DELETE FROM user_stamps WHERE user_id = ? AND stamp_id = ? AND count <= 0 AND exchanged <= 0", [userId, stampId]);
+    const [updated] = await pool.query("SELECT count, exchanged FROM user_stamps WHERE user_id = ? AND stamp_id = ?", [userId, stampId]);
+    if ((updated as any[]).length === 0) {
+      res.json({ stampId, count: 0, exchanged: 0 });
+    } else {
+      const r = (updated as any[])[0];
+      res.json({ stampId, count: r.count, exchanged: r.exchanged });
+    }
+  } catch (e: any) {
+    res.status(500).json({ error: "Error al registrar intercambio" });
+  }
+});
+
+router.get("/duplicates", async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+  if (!userId) { res.status(401).json({ error: "No autorizado" }); return; }
+
+  try {
+    const [rows] = await pool.query(
+      "SELECT stamp_id, count, exchanged FROM user_stamps WHERE user_id = ? AND count > 1",
+      [userId]
+    );
+    res.json({ duplicates: rows });
+  } catch (e: any) {
+    res.status(500).json({ error: "Error al obtener repetidas" });
   }
 });
 
@@ -93,9 +130,12 @@ router.get("/stats", async (req: Request, res: Response) => {
   if (!userId) { res.status(401).json({ error: "No autorizado" }); return; }
 
   try {
-    const [rows] = await pool.query("SELECT COUNT(*) as count FROM user_stamps WHERE user_id = ? AND owned = true", [userId]);
-    const count = (rows as any[])[0].count;
-    res.json({ owned: count, total: 960 });
+    const [rows] = await pool.query(
+      "SELECT COUNT(*) as uniqueStamps, COALESCE(SUM(count), 0) as totalCopies, COALESCE(SUM(exchanged), 0) as totalExchanged FROM user_stamps WHERE user_id = ? AND count > 0",
+      [userId]
+    );
+    const r = (rows as any[])[0];
+    res.json({ owned: r.uniqueStamps, total: 960, copies: r.totalCopies, exchanged: r.totalExchanged });
   } catch (e: any) {
     res.status(500).json({ error: "Error al obtener stats" });
   }

@@ -39,25 +39,50 @@ export async function getMe() {
   return r.json();
 }
 
-export async function fetchCollection(): Promise<Set<string>> {
+export type StampData = { count: number; exchanged: number };
+
+export async function fetchCollection(): Promise<Record<string, StampData>> {
   const r = await fetch(`${API_URL}/api/collection`, { headers: headers() });
-  if (!r.ok) return new Set();
+  if (!r.ok) return {};
   const data = await r.json();
-  const stamps = data.stamps as Record<string, boolean>;
-  return new Set(Object.keys(stamps).filter((k) => stamps[k]));
+  return data.stamps as Record<string, StampData>;
 }
 
-export async function toggleStamp(stampId: string): Promise<{ stampId: string; owned: boolean }> {
-  const r = await fetch(`${API_URL}/api/collection/toggle`, {
+export async function incrementStamp(stampId: string): Promise<StampData & { stampId: string }> {
+  const r = await fetch(`${API_URL}/api/collection/increment`, {
     method: "POST", headers: headers(), body: JSON.stringify({ stampId }),
   });
-  if (!r.ok) throw new Error("Error al actualizar");
+  if (!r.ok) throw new Error("Error al incrementar");
   return r.json();
 }
 
-export async function syncCollection(owned: Set<string>) {
+export async function decrementStamp(stampId: string): Promise<StampData & { stampId: string }> {
+  const r = await fetch(`${API_URL}/api/collection/decrement`, {
+    method: "POST", headers: headers(), body: JSON.stringify({ stampId }),
+  });
+  if (!r.ok) throw new Error("Error al decrementar");
+  return r.json();
+}
+
+export async function exchangeStamp(stampId: string): Promise<StampData & { stampId: string }> {
+  const r = await fetch(`${API_URL}/api/collection/exchange`, {
+    method: "POST", headers: headers(), body: JSON.stringify({ stampId }),
+  });
+  if (!r.ok) throw new Error("Error al intercambiar");
+  return r.json();
+}
+
+export async function fetchDuplicates(): Promise<any[]> {
+  const r = await fetch(`${API_URL}/api/collection/duplicates`, { headers: headers() });
+  if (!r.ok) return [];
+  const data = await r.json();
+  return data.duplicates;
+}
+
+export async function syncCollection(stampIds: string[]) {
+  // Not needed with new API - keeping for reference
   const r = await fetch(`${API_URL}/api/collection/sync`, {
-    method: "POST", headers: headers(), body: JSON.stringify({ stamps: [...owned] }),
+    method: "POST", headers: headers(), body: JSON.stringify({ stamps: stampIds }),
   });
   return r.json();
 }

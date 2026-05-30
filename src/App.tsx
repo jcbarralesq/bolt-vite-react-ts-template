@@ -4,7 +4,7 @@ import { Dashboard, StampGrid } from "./components/Dashboard";
 import { teams, stamps, getStampsByTeam } from "./data";
 import { register, login, getMe } from "./api/client";
 
-type View = "dashboard" | "team";
+type View = "dashboard" | "team" | "duplicates";
 type Filter = "all" | "owned" | "missing";
 
 export default function App() {
@@ -29,17 +29,9 @@ export default function App() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    // Verify stored token is valid
     getMe().then((u) => {
-      if (u) {
-        setUserId(u.userId);
-        setUsername(u.username);
-      } else {
-        localStorage.removeItem("panini-user");
-        localStorage.removeItem("panini-token");
-        setUserId(null);
-        setUsername("");
-      }
+      if (u) { setUserId(u.userId); setUsername(u.username); }
+      else { localStorage.removeItem("panini-user"); localStorage.removeItem("panini-token"); setUserId(null); setUsername(""); }
       setChecking(false);
     });
   }, []);
@@ -53,43 +45,31 @@ export default function App() {
       localStorage.setItem("panini-user", JSON.stringify({ userId: data.userId, username: data.username }));
       setUserId(data.userId);
       setUsername(data.username);
-      setAuthUser("");
-      setAuthPass("");
-    } catch (e: any) {
-      setAuthError(e.message);
-    }
+      setAuthUser(""); setAuthPass("");
+    } catch (e: any) { setAuthError(e.message); }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("panini-user");
-    localStorage.removeItem("panini-token");
-    setUserId(null);
-    setUsername("");
+    localStorage.removeItem("panini-user"); localStorage.removeItem("panini-token");
+    setUserId(null); setUsername("");
   };
 
   const searchedStamps = useMemo(() => {
     if (!search.trim()) return null;
     const q = search.toLowerCase();
-    return stamps.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.code.toLowerCase().includes(q) ||
-        teams.find((t) => t.id === s.teamId)?.name.toLowerCase().includes(q)
+    return stamps.filter((s) =>
+      s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q) ||
+      teams.find((t) => t.id === s.teamId)?.name.toLowerCase().includes(q)
     );
   }, [search]);
 
-  const handleTeamClick = (teamId: string) => {
-    setSelectedTeam(teamId);
-    setView("team");
-    setFilter("all");
-  };
+  const duplicateStamps = useMemo(() =>
+    collection.duplicates.map((d) => stamps.find((s) => s.id === d.stampId)).filter(Boolean) as typeof stamps,
+    [collection.duplicates]
+  );
 
   if (checking) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-400">Cargando...</p>
-      </div>
-    );
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>;
   }
 
   if (!userId) {
@@ -102,46 +82,14 @@ export default function App() {
             <p className="text-sm text-gray-500">Colección de Estampas</p>
           </div>
           <div className="flex gap-1 mb-4">
-            <button
-              onClick={() => setAuthMode("login")}
-              className={`flex-1 py-2 rounded text-sm font-medium transition-colors ${
-                authMode === "login" ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600"
-              }`}
-            >
-              Iniciar Sesión
-            </button>
-            <button
-              onClick={() => setAuthMode("register")}
-              className={`flex-1 py-2 rounded text-sm font-medium transition-colors ${
-                authMode === "register" ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600"
-              }`}
-            >
-              Registro
-            </button>
+            <button onClick={() => setAuthMode("login")} className={`flex-1 py-2 rounded text-sm font-medium transition-colors ${authMode === "login" ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600"}`}>Iniciar Sesión</button>
+            <button onClick={() => setAuthMode("register")} className={`flex-1 py-2 rounded text-sm font-medium transition-colors ${authMode === "register" ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600"}`}>Registro</button>
           </div>
           <div className="space-y-3">
-            <input
-              type="text"
-              value={authUser}
-              onChange={(e) => setAuthUser(e.target.value)}
-              placeholder="Usuario"
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
-            />
-            <input
-              type="password"
-              value={authPass}
-              onChange={(e) => setAuthPass(e.target.value)}
-              placeholder="Contraseña"
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
-              onKeyDown={(e) => e.key === "Enter" && handleAuth()}
-            />
+            <input type="text" value={authUser} onChange={(e) => setAuthUser(e.target.value)} placeholder="Usuario" className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300" />
+            <input type="password" value={authPass} onChange={(e) => setAuthPass(e.target.value)} placeholder="Contraseña" className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-300" onKeyDown={(e) => e.key === "Enter" && handleAuth()} />
             {authError && <p className="text-red-500 text-xs">{authError}</p>}
-            <button
-              onClick={handleAuth}
-              className="w-full py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
-            >
-              {authMode === "login" ? "Entrar" : "Crear cuenta"}
-            </button>
+            <button onClick={handleAuth} className="w-full py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors">{authMode === "login" ? "Entrar" : "Crear cuenta"}</button>
           </div>
         </div>
       </div>
@@ -161,46 +109,26 @@ export default function App() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-xs text-gray-400">{username}</span>
-            <button
-              onClick={handleLogout}
-              className="text-xs text-gray-500 hover:text-red-500 transition-colors"
-            >
-              Salir
-            </button>
+            <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-red-500 transition-colors">Salir</button>
             <div className="hidden sm:block text-right">
               <div className="text-sm text-gray-500">Progreso</div>
               <div className="font-bold text-green-600">{collection.progress}%</div>
             </div>
             <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-green-500 rounded-full transition-all"
-                style={{ width: `${collection.progress}%` }}
-              />
+              <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${collection.progress}%` }} />
             </div>
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4 pb-2 flex gap-1">
-          <button
-            onClick={() => setView("dashboard")}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-              view === "dashboard"
-                ? "bg-green-600 text-white"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            Equipos
-          </button>
+          <button onClick={() => setView("dashboard")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "dashboard" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Equipos</button>
+          {collection.duplicates.length > 0 && (
+            <button onClick={() => setView("duplicates")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "duplicates" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+              Repetidas ({collection.duplicates.length})
+            </button>
+          )}
           <div className="relative ml-auto">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar jugador o equipo..."
-              className="pl-8 pr-3 py-1.5 text-sm border rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-green-300"
-            />
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-              🔍
-            </span>
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." className="pl-8 pr-3 py-1.5 text-sm border rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-green-300" />
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
           </div>
         </div>
       </header>
@@ -208,105 +136,105 @@ export default function App() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         {search.trim() ? (
           <div className="bg-white rounded-xl shadow-sm border">
-            <div className="p-4 border-b">
-              <h2 className="text-lg font-bold text-gray-800">
-                Resultados: {searchedStamps?.length} estampas
-              </h2>
+            <div className="p-4 border-b"><h2 className="text-lg font-bold text-gray-800">Resultados: {searchedStamps?.length}</h2></div>
+            <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {searchedStamps?.map((stamp) => (
+                <button
+                  key={stamp.id}
+                  onClick={() => collection.has(stamp.id) ? collection.removeOne(stamp.id) : collection.addOne(stamp.id)}
+                  className={`relative p-3 rounded-lg border-2 text-center transition-all ${collection.has(stamp.id) ? "border-green-400 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                >
+                  <div className="font-mono font-black text-lg text-gray-700 leading-tight">{stamp.teamId}</div>
+                  <div className="font-mono font-black text-3xl text-gray-900 leading-tight">{stamp.code.split("-")[1]}</div>
+                  {collection.getCount(stamp.id) > 1 && (
+                    <div className="absolute top-1 left-1 bg-amber-400 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{collection.getCount(stamp.id)}</div>
+                  )}
+                  {collection.has(stamp.id) && (
+                    <div className="absolute top-1 right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"><span className="text-white text-xs">✓</span></div>
+                  )}
+                </button>
+              ))}
+              {searchedStamps?.length === 0 && <p className="col-span-full text-center text-gray-400 py-8">No se encontraron estampas</p>}
+            </div>
+          </div>
+        ) : view === "duplicates" ? (
+          <div className="bg-white rounded-xl shadow-sm border">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-800">Repetidas</h2>
+              <span className="text-sm text-gray-400">{collection.duplicates.reduce((s, d) => s + d.count - 1, 0)} estampas extras · {collection.duplicates.length} códigos</span>
             </div>
             <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {searchedStamps?.map((stamp) => {
-                const isOwned = collection.has(stamp.id);
-                const team = teams.find((t) => t.id === stamp.teamId);
+              {duplicateStamps.map((stamp) => {
+                if (!stamp) return null;
+                const c = collection.getCount(stamp.id);
+                const ex = collection.getExchanged(stamp.id);
                 return (
-                  <button
-                    key={stamp.id}
-                    onClick={() => collection.toggle(stamp.id)}
-                    className={`relative p-3 rounded-lg border-2 text-center transition-all ${
-                      isOwned
-                        ? "border-green-400 bg-green-50"
-                        : "border-gray-200 bg-white hover:bg-gray-50"
-                    }`}
-                  >
+                  <div key={stamp.id} className="relative p-3 rounded-lg border-2 border-amber-300 bg-amber-50 text-center">
                     <div className="font-mono font-black text-lg text-gray-700 leading-tight">{stamp.teamId}</div>
-                    <div className="font-mono font-black text-3xl text-gray-900 leading-tight">
-                      {stamp.code.split("-")[1]}
-                    </div>
-                    {isOwned && (
-                      <div className="absolute top-1 right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                        <span className="text-white text-xs">✓</span>
-                      </div>
+                    <div className="font-mono font-black text-3xl text-gray-900 leading-tight">{stamp.code.split("-")[1]}</div>
+                    <div className="absolute top-1 left-1 bg-amber-400 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{c}</div>
+                    {ex > 0 && (
+                      <div className="absolute top-1 right-1 bg-orange-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{ex}</div>
                     )}
-                  </button>
+                    <div className="flex gap-1 mt-2">
+                      <button onClick={() => collection.addOne(stamp.id)} className="flex-1 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">+1</button>
+                      <button onClick={() => collection.removeOne(stamp.id)} className="flex-1 py-1 bg-red-400 text-white text-xs rounded hover:bg-red-500">−1</button>
+                    </div>
+                    <button onClick={() => collection.exchange(stamp.id)} className="w-full mt-1 py-1 bg-orange-100 text-orange-700 text-xs rounded hover:bg-orange-200">Intercambié</button>
+                  </div>
                 );
               })}
-              {searchedStamps?.length === 0 && (
-                <p className="col-span-full text-center text-gray-400 py-8">
-                  No se encontraron estampas
-                </p>
-              )}
+              {duplicateStamps.length === 0 && <p className="col-span-full text-center text-gray-400 py-8">Sin repetidas</p>}
             </div>
           </div>
         ) : view === "team" && selectedTeam ? (
           <>
             <div className="flex gap-2 mb-4">
               {(["all", "missing", "owned"] as Filter[]).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                    filter === f
-                      ? "bg-green-600 text-white"
-                      : "text-gray-600 hover:bg-gray-100 bg-white border"
-                  }`}
-                >
+                <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${filter === f ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100 bg-white border"}`}>
                   {f === "all" ? "Todas" : f === "missing" ? "Faltantes" : "Obtenidas"}
                 </button>
               ))}
               <div className="ml-auto text-sm text-gray-500 flex items-center gap-2">
-                <button
-                  onClick={() =>
-                    collection.toggleTeam(
-                      selectedTeam,
-                      getStampsByTeam(selectedTeam).filter(
-                        (s) => !collection.has(s.id)
-                      ).length > 0
-                    )
-                  }
-                  className="px-3 py-1.5 rounded text-xs font-medium bg-gray-100 hover:bg-gray-200 transition-colors"
-                >
-                  {getStampsByTeam(selectedTeam).filter((s) => !collection.has(s.id))
-                    .length > 0
-                    ? "Marcar todas ✓"
-                    : "Desmarcar todas ✗"}
+                <button onClick={() => collection.toggleTeam(selectedTeam, getStampsByTeam(selectedTeam).filter((s) => !collection.has(s.id)).length > 0)} className="px-3 py-1.5 rounded text-xs font-medium bg-gray-100 hover:bg-gray-200 transition-colors">
+                  {getStampsByTeam(selectedTeam).filter((s) => !collection.has(s.id)).length > 0 ? "Marcar todas ✓" : "Desmarcar todas ✗"}
                 </button>
               </div>
             </div>
             <StampGrid
               teamId={selectedTeam}
               owned={collection.owned}
-              onToggle={collection.toggle}
+              onAdd={collection.addOne}
+              onRemove={collection.removeOne}
+              onExchange={collection.exchange}
+              getCount={collection.getCount}
+              getExchanged={collection.getExchanged}
               filter={filter}
-              onBack={() => {
-                setView("dashboard");
-                setSelectedTeam(null);
-              }}
+              onBack={() => { setView("dashboard"); setSelectedTeam(null); }}
             />
           </>
         ) : (
           <Dashboard
             owned={collection.owned}
-            ownedCount={collection.ownedCount}
-            totalCount={collection.totalCount}
+            uniqueOwned={collection.uniqueOwned}
+            totalCopies={collection.totalCopies}
+            totalExchanged={collection.totalExchanged}
             progress={collection.progress}
+            duplicates={collection.duplicates}
+            onAdd={collection.addOne}
+            onRemove={collection.removeOne}
+            onExchange={collection.exchange}
+            getCount={collection.getCount}
+            getExchanged={collection.getExchanged}
             ownedByTeam={collection.ownedByTeam}
             totalByTeam={collection.totalByTeam}
-            onTeamClick={handleTeamClick}
+            onTeamClick={(teamId) => { setSelectedTeam(teamId); setView("team"); setFilter("all"); }}
           />
         )}
       </main>
 
       <footer className="text-center py-6 text-xs text-gray-400">
-        FIFA World Cup 2026 · Copa Mundial de la FIFA · {collection.ownedCount}/{collection.totalCount} estampas
+        FIFA World Cup 2026 · {collection.uniqueOwned}/{stamps.length} únicas · {collection.totalCopies} copias
       </footer>
     </div>
   );

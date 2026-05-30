@@ -1,60 +1,97 @@
 import { useState, useEffect, useCallback } from "react";
 import { stamps } from "../data";
-import { fetchCollection, toggleStamp, syncCollection } from "../api/client";
-
-function loadLocalCollection(): Set<string> {
-  try {
-    const saved = localStorage.getItem("panini-collection");
-    if (saved) return new Set(JSON.parse(saved));
-  } catch {}
-  return new Set();
-}
+import { fetchCollection, incrementStamp, decrementStamp, exchangeStamp, type StampData } from "../api/client";
 
 export function useCollection(userId: number | null) {
-  const [owned, setOwned] = useState<Set<string>>(loadLocalCollection);
+  const [owned, setOwned] = useState<Record<string, StampData>>({});
   const [loaded, setLoaded] = useState(false);
 
-  // Load from server on login
   useEffect(() => {
-    if (!userId) { setLoaded(true); return; }
-    fetchCollection().then((remote) => {
-      if (remote.size > 0) {
-        setOwned(remote);
-        localStorage.setItem("panini-collection", JSON.stringify([...remote]));
-      } else {
-        // Seed from local to server
-        const local = loadLocalCollection();
-        if (local.size > 0) syncCollection(local);
-        setOwned(local);
-      }
+    if (!userId) { setOwned({}); setLoaded(true); return; }
+    fetchCollection().then((data) => {
+      setOwned(data);
       setLoaded(true);
     }).catch(() => setLoaded(true));
   }, [userId]);
 
-  const toggle = useCallback(async (stampId: string) => {
+  const getCount = useCallback((stampId: string) => owned[stampId]?.count || 0, [owned]);
+  const getExchanged = useCallback((stampId: string) => owned[stampId]?.exchanged || 0, [owned]);
+  const has = useCallback((stampId: string) => (owned[stampId]?.count || 0) > 0, [owned]);
+
+  const addOne = useCallback(async (stampId: string) => {
     setOwned((prev) => {
-      const next = new Set(prev);
-      if (next.has(stampId)) next.delete(stampId);
-      else next.add(stampId);
-      localStorage.setItem("panini-collection", JSON.stringify([...next]));
+      const next = { ...prev };
+      const curr = next[stampId];
+      next[stampId] = { count: (curr?.count || 0) + 1, exchanged: curr?.exchanged || 0 };
       return next;
     });
     if (userId) {
-      try { await toggleStamp(stampId); } catch {}
+      try {
+        const r = await incrementStamp(stampId);
+        setOwned((prev) => ({ ...prev, [stampId]: { count: r.count, exchanged: r.exchanged } }));
+      } catch {}
     }
   }, [userId]);
 
-  const has = useCallback(
-    (stampId: string) => owned.has(stampId),
-    [owned]
-  );
+  const removeOne = useCallback(async (stampId: string) => {
+    setOwned((prev) => {
+      const curr = prev[stampId];
+      if (!curr || curr.count <= 1) {
+        const next = { ...prev };
+        delete next[stampId];
+        return next;
+      }
+      return { ...prev, [stampId]: { count: curr.count - 1, exchanged: curr.exchanged } };
+    });
+    if (userId) {
+      try {
+        const r = await decrementStamp(stampId);
+        setOwned((prev) => {
+          if (r.count <= 0) {
+            const next = { ...prev };
+            delete next[stampId];
+            return next;
+          }
+          return { ...prev, [stampId]: { count: r.count, exchanged: r.exchanged } };
+        });
+      } catch {}
+    }
+  }, [userId]);
 
-  const ownedCount = owned.size;
-  const totalCount = stamps.length;
-  const progress = totalCount ? Math.round((ownedCount / totalCount) * 100) : 0;
+  const exchange = useCallback(async (stampId: string) => {
+    const curr = owned[stampId];
+    if (!curr || curr.count < 1) return;
+    setOwned((prev) => {
+      const after = { ...prev };
+      if (curr.count <= 1) {
+        delete after[stampId];
+      } else {
+        after[stampId] = { count: curr.count - 1, exchanged: curr.exchanged + 1 };
+      }
+      return after;
+    });
+    if (userId) {
+      try {
+        const r = await exchangeStamp(stampId);
+        setOwned((prev) => {
+          if (r.count <= 0) {
+            const next = { ...prev };
+            delete next[stampId];
+            return next;
+          }
+          return { ...prev, [stampId]: { count: r.count, exchanged: r.exchanged } };
+        });
+      } catch {}
+    }
+  }, [userId, owned]);
+
+  const uniqueOwned = Object.keys(owned).filter(k => owned[k].count > 0).length;
+  const totalCopies = Object.values(owned).reduce((sum, s) => sum + s.count, 0);
+  const totalExchanged = Object.values(owned).reduce((sum, s) => sum + s.exchanged, 0);
+  const progress = stamps.length ? Math.round((uniqueOwned / stamps.length) * 100) : 0;
 
   const ownedByTeam = useCallback(
-    (teamId: string) => stamps.filter((s) => s.teamId === teamId && owned.has(s.id)).length,
+    (teamId: string) => stamps.filter((s) => (owned[s.id]?.count || 0) > 0).length,
     [owned]
   );
 
@@ -63,35 +100,27 @@ export function useCollection(userId: number | null) {
     []
   );
 
+  const duplicates = Object.entries(owned)
+    .filter(([, v]) => v.count > 1)
+    .map(([stampId, v]) => ({ stampId, ...v }));
+
   const toggleTeam = useCallback(
     async (teamId: string, markOwned: boolean) => {
       const teamStamps = stamps.filter((s) => s.teamId === teamId);
-      setOwned((prev) => {
-        const next = new Set(prev);
-        teamStamps.forEach((s) => {
-          if (markOwned) next.add(s.id);
-          else next.delete(s.id);
-        });
-        localStorage.setItem("panini-collection", JSON.stringify([...next]));
-        return next;
-      });
-      if (userId) {
-        try { await syncCollection(owned); } catch {}
+      for (const s of teamStamps) {
+        if (markOwned) {
+          if (!has(s.id)) await addOne(s.id);
+        } else {
+          while (getCount(s.id) > 0) await removeOne(s.id);
+        }
       }
     },
-    [userId, owned]
+    [addOne, removeOne, has, getCount]
   );
 
-  const reset = useCallback(async () => {
-    setOwned(new Set());
-    localStorage.removeItem("panini-collection");
-    if (userId) {
-      try { await syncCollection(new Set()); } catch {}
-    }
-  }, [userId]);
-
   return {
-    owned, toggle, has, ownedCount, totalCount, progress,
-    ownedByTeam, totalByTeam, toggleTeam, reset, loaded,
+    owned, addOne, removeOne, exchange, has, getCount, getExchanged,
+    uniqueOwned, totalCopies, totalExchanged, progress, duplicates,
+    ownedByTeam, totalByTeam, toggleTeam, loaded,
   };
 }
