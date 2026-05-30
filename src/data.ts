@@ -52,7 +52,7 @@ export const teams: Team[] = [
 ];
 
 const players: Record<string, string[]> = {
-  MEX: ["Luis Malagón","Johan Vásquez","César Montes","Israel Reyes","Jorge Sánchez","Jesús Gallardo","Carlos Rodríguez","Edson Álvarez","Orbelín Pineda","Marcel Ruiz","Érick Sánchez","Diego Lainez","Hirving Lozano","Santiago Giménez","Raúl Jiménez","Alexis Vega","Roberto Alvarado","César Huerta"],
+  MEX: ["Luis Ángel Malagón","Johan Vásquez","Jorge Sánchez","César Montes","Jesús Gallardo","Israel Reyes","Diego Lainez","Carlos Rodríguez","Edson Álvarez","Orbelín Pineda","Marcel Ruiz","Érick Sánchez","Hirving Lozano","Santiago Giménez","Raúl Jiménez","Alexis Vega","Roberto Alvarado","César Huerta"],
   RSA: ["Ronwen Williams","Sipho Chaine","Mbekezeli Mbokazi","Khulumani Ndamane","Nkosinathi Sibisi","Siyabonga Ngezana","Khuliso Mudau","Aubrey Modiba","Samukele Kabini","Thalente Mbatha","Teboho Mokoena","Bathusi Aubaas","Yaya Sithole","Sipho Mbule","Lyle Foster","Iqraam Rayners","Mohau Nkota","Oswin Appollis"],
   KOR: ["Hyeon-woo Jo","Seung-Gyu Kim","Min-jae Kim","Yu-min Cho","Han-beom Lee","Young-woo Seol","Tae-seok Lee","Myung-jae Lee","Jae-sung Lee","In-beom Hwang","Kang-in Lee","Seung-ho Paik","Jens Castrop","Dong-yeong Lee","Gue-sung Cho","Heung-min Son","Hee-chan Hwang","Hyeon-Gyu Oh"],
   CZE: ["Matej Kovar","Jindrich Stanek","Ladislav Krejci","Jaroslav Zeleny","Tomas Holes","David Zima","Vladimir Coufal","Michal Sadilek","Lukas Provod","Lukas Cerv","Tomas Soucek","Pavel Sulc","Matej Vydra","Vasil Kusej","Tomas Chory","Vaclav Cerny","Adam Hlozek","Patrik Schick"],
@@ -107,18 +107,26 @@ function buildStamps(): Stamp[] {
   const result: Stamp[] = [];
   for (const team of teams) {
     let tNum = 0;
-    // Badge
-    tNum++;
+    // #1 Badge
+    tNum = 1;
     result.push({ id: `${team.id}-badge`, number: counter++, code: `${team.id}-${tNum}`, name: `Escudo ${team.name}`, teamId: team.id, rarity: "legendary" });
-    // Team photo
-    tNum++;
-    result.push({ id: `${team.id}-photo`, number: counter++, code: `${team.id}-${tNum}`, name: `Foto ${team.name}`, teamId: team.id, rarity: "rare" });
-    // 18 players
+    // #2-12: First 11 players
     const names = players[team.id] || [];
-    for (let i = 0; i < names.length; i++) {
-      tNum++;
+    const first11 = names.slice(0, 11);
+    for (let i = 0; i < first11.length; i++) {
+      tNum = 2 + i;
       const rarity: Stamp["rarity"] = i <= 1 ? "legendary" : i <= 4 ? "rare" : "common";
-      result.push({ id: `${team.id}-${i}`, number: counter++, code: `${team.id}-${tNum}`, name: names[i], teamId: team.id, rarity });
+      result.push({ id: `${team.id}-${i}`, number: counter++, code: `${team.id}-${tNum}`, name: first11[i], teamId: team.id, rarity });
+    }
+    // #13 Team photo
+    tNum = 13;
+    result.push({ id: `${team.id}-photo`, number: counter++, code: `${team.id}-${tNum}`, name: `Foto ${team.name}`, teamId: team.id, rarity: "rare" });
+    // #14-20: Last 7 players
+    const last7 = names.slice(11);
+    for (let i = 0; i < last7.length; i++) {
+      tNum = 14 + i;
+      const rarity: Stamp["rarity"] = "common";
+      result.push({ id: `${team.id}-${11 + i}`, number: counter++, code: `${team.id}-${tNum}`, name: last7[i], teamId: team.id, rarity });
     }
   }
   return result;
