@@ -127,54 +127,46 @@ export default function App() {
             </div>
           </div>
         </div>
-        <div className="max-w-6xl mx-auto px-4 pb-2 flex gap-1">
-          <button onClick={() => setView("dashboard")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "dashboard" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Álbum</button>
-          <button onClick={() => setView("missing")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "missing" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Faltantes</button>
-          <button onClick={() => setView("wishlist")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "wishlist" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
-            Busco {collection.wishlist.size > 0 && `(${collection.wishlist.size})`}
-          </button>
-          {collection.duplicates.length > 0 && (
-            <button onClick={() => setView("duplicates")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "duplicates" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
-              Repetidas ({collection.duplicates.length})
-            </button>
-          )}
-          <button onClick={() => setView("trade")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "trade" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Intercambio</button>
-          <button onClick={() => setView("stats")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "stats" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Estadísticas</button>
+        <div className="max-w-6xl mx-auto px-4 pb-2 flex gap-1 overflow-x-auto whitespace-nowrap">
+          <button onClick={() => setView("dashboard")} className={`px-2 py-1 rounded text-xs sm:text-sm font-medium shrink-0 transition-colors ${view === "dashboard" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Álbum</button>
+          <button onClick={() => setView("missing")} className={`px-2 py-1 rounded text-xs sm:text-sm font-medium shrink-0 transition-colors ${view === "missing" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Faltan</button>
+          <button onClick={() => setView("wishlist")} className={`px-2 py-1 rounded text-xs sm:text-sm font-medium shrink-0 transition-colors ${view === "wishlist" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Busco</button>
+          <button onClick={() => setView("duplicates")} className={`px-2 py-1 rounded text-xs sm:text-sm font-medium shrink-0 transition-colors ${view === "duplicates" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Repes</button>
+          <button onClick={() => setView("trade")} className={`px-2 py-1 rounded text-xs sm:text-sm font-medium shrink-0 transition-colors ${view === "trade" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Trade</button>
+          <button onClick={() => setView("stats")} className={`px-2 py-1 rounded text-xs sm:text-sm font-medium shrink-0 transition-colors ${view === "stats" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Stats</button>
           <button
-            onClick={async () => {
-              const newVal = !publicProfile;
-              setPublicProfile(newVal);
-              try { await setProfileVisibility(newVal); } catch {}
-            }}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${publicProfile ? "bg-blue-500 text-white" : "text-gray-400 hover:bg-gray-100"}`}
-            title={publicProfile ? "Perfil público activo" : "Perfil privado"}
-          >
-            {publicProfile ? "🌐" : "🔒"}
-          </button>
+            onClick={async () => { const newVal = !publicProfile; setPublicProfile(newVal); try { await setProfileVisibility(newVal); } catch {} }}
+            className={`px-2 py-1 rounded text-xs sm:text-sm font-medium shrink-0 transition-colors ${publicProfile ? "bg-blue-500 text-white" : "text-gray-400 hover:bg-gray-100"}`}
+          >{publicProfile ? "🌐" : "🔒"}</button>
+          <span className="text-gray-300 mx-0.5 shrink-0">|</span>
           <button
             onClick={async () => {
               const lines: string[] = [];
               for (const team of teams) {
-                const missing = getStampsByTeam(team.id)
-                  .filter((s) => !collection.has(s.id))
-                  .map((s) => s.code.split("-")[1]);
-                if (missing.length > 0) {
-                  lines.push(`${team.flag} ${team.id}: ${missing.join(",")}`);
-                }
+                const missing = getStampsByTeam(team.id).filter((s) => !collection.has(s.id)).map((s) => s.code.split("-")[1]);
+                if (missing.length > 0) lines.push(`${team.flag} ${team.id}: ${missing.join(",")}`);
               }
               const text = lines.join("\n") || "¡Colección completa!";
-              if (navigator.share) {
-                try { await navigator.share({ text }); } catch {}
-              } else {
-                await navigator.clipboard.writeText(text);
-                alert("Faltantes copiados al portapapeles");
-              }
+              if (navigator.share) { try { await navigator.share({ text }); } catch {} }
+              else { await navigator.clipboard.writeText(text); alert("Faltantes copiados"); }
             }}
-            className="px-3 py-1.5 rounded text-sm font-medium text-gray-600 hover:bg-gray-100"
-            title="Exportar faltantes"
-          >📤 Exportar</button>
-          <div className="relative ml-auto">
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." className="pl-8 pr-3 py-1.5 text-sm border rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-green-300" />
+            className="px-2 py-1 rounded text-xs sm:text-sm font-medium text-red-500 hover:bg-red-50 shrink-0"
+          >📤Falta</button>
+          <button
+            onClick={async () => {
+              const lines: string[] = [];
+              for (const team of teams) {
+                const dupes = getStampsByTeam(team.id).filter((s) => collection.getCount(s.id) > 1).map((s) => `${s.code.split("-")[1]}(x${collection.getCount(s.id)})`);
+                if (dupes.length > 0) lines.push(`${team.flag} ${team.id}: ${dupes.join(",")}`);
+              }
+              const text = lines.join("\n") || "Sin repetidas";
+              if (navigator.share) { try { await navigator.share({ text }); } catch {} }
+              else { await navigator.clipboard.writeText(text); alert("Repetidas copiadas"); }
+            }}
+            className="px-2 py-1 rounded text-xs sm:text-sm font-medium text-amber-500 hover:bg-amber-50 shrink-0"
+          >📤Repes</button>
+          <div className="relative ml-auto shrink-0">
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." className="pl-7 pr-2 py-1 text-xs sm:text-sm border rounded-lg w-32 sm:w-48 focus:outline-none focus:ring-2 focus:ring-green-300" />
             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
           </div>
         </div>
