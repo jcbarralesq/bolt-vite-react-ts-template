@@ -151,6 +151,28 @@ export default function App() {
           >
             {publicProfile ? "🌐" : "🔒"}
           </button>
+          <button
+            onClick={async () => {
+              const lines: string[] = [];
+              for (const team of teams) {
+                const missing = getStampsByTeam(team.id)
+                  .filter((s) => !collection.has(s.id))
+                  .map((s) => s.code.split("-")[1]);
+                if (missing.length > 0) {
+                  lines.push(`${team.flag} ${team.id}: ${missing.join(",")}`);
+                }
+              }
+              const text = lines.join("\n") || "¡Colección completa!";
+              if (navigator.share) {
+                try { await navigator.share({ text }); } catch {}
+              } else {
+                await navigator.clipboard.writeText(text);
+                alert("Faltantes copiados al portapapeles");
+              }
+            }}
+            className="px-3 py-1.5 rounded text-sm font-medium text-gray-600 hover:bg-gray-100"
+            title="Exportar faltantes"
+          >📤 Exportar</button>
           <div className="relative ml-auto">
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." className="pl-8 pr-3 py-1.5 text-sm border rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-green-300" />
             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
