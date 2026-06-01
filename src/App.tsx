@@ -8,7 +8,7 @@ import { QuickTrade } from "./components/QuickTrade";
 import { Statistics } from "./components/Statistics";
 import { getProfileVisibility, setProfileVisibility } from "./api/client";
 
-type View = "dashboard" | "team" | "duplicates" | "wishlist" | "trade" | "stats";
+type View = "dashboard" | "team" | "duplicates" | "wishlist" | "trade" | "stats" | "missing";
 type Filter = "all" | "owned" | "missing" | "wishlisted";
 
 export default function App() {
@@ -128,7 +128,8 @@ export default function App() {
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4 pb-2 flex gap-1">
-          <button onClick={() => setView("dashboard")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "dashboard" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Equipos</button>
+          <button onClick={() => setView("dashboard")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "dashboard" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Álbum</button>
+          <button onClick={() => setView("missing")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "missing" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Faltantes</button>
           <button onClick={() => setView("wishlist")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "wishlist" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
             Busco {collection.wishlist.size > 0 && `(${collection.wishlist.size})`}
           </button>
@@ -200,42 +201,101 @@ export default function App() {
               {collection.wishlistStamps.length === 0 && <p className="col-span-full text-center text-gray-400 py-8">No tienes estampas en tu lista de búsqueda</p>}
             </div>
           </div>
+        ) : view === "missing" ? (
+          <div className="space-y-6">
+            {teams.map((team) => {
+              const missingStamps = getStampsByTeam(team.id).filter((s) => !collection.has(s.id));
+              if (missingStamps.length === 0) return null;
+              return (
+                <div key={team.id} className="bg-white rounded-xl shadow-sm border">
+                  <button
+                    onClick={() => { setSelectedTeam(team.id); setView("team"); setFilter("missing"); }}
+                    className="p-4 border-b w-full text-left hover:bg-gray-50 flex items-center gap-3"
+                  >
+                    <span className="text-xl">{team.flag}</span>
+                    <div>
+                      <span className="font-bold text-gray-800">{team.name}</span>
+                      <span className="text-sm text-gray-400 ml-2">Grupo {team.group}</span>
+                    </div>
+                    <span className="ml-auto text-sm font-bold text-red-500">{missingStamps.length} faltantes</span>
+                  </button>
+                  <div className="p-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                    {missingStamps.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => collection.addOne(s.id)}
+                        className="p-2 rounded-lg border-2 border-gray-200 bg-white text-center hover:bg-green-50 hover:border-green-300 transition-all"
+                      >
+                        <div className="font-mono font-bold text-xs text-gray-500">{s.teamId}</div>
+                        <div className="font-mono font-black text-xl text-gray-900">{s.code.split("-")[1]}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : view === "trade" ? (
           <QuickTrade owned={collection.owned} getCount={collection.getCount} addOne={collection.addOne} removeOne={collection.removeOne} />
         ) : view === "stats" ? (
           <Statistics uniqueOwned={collection.uniqueOwned} totalCopies={collection.totalCopies} totalExchanged={collection.totalExchanged} progress={collection.progress} ownedByTeam={collection.ownedByTeam} totalByTeam={collection.totalByTeam} />
         ) : view === "duplicates" ? (
-          <div className="bg-white rounded-xl shadow-sm border">
-            <div className="p-4 border-b flex items-center justify-between">
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl shadow-sm border p-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-800">Repetidas</h2>
-              <span className="text-sm text-gray-400">{collection.duplicates.reduce((s, d) => s + d.count - 1, 0)} estampas extras · {collection.duplicates.length} códigos</span>
+              <span className="text-sm text-gray-400">{collection.duplicates.reduce((s, d) => s + d.count - 1, 0)} extras · {collection.duplicates.length} códigos</span>
             </div>
-            <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {duplicateStamps.map((stamp) => {
-                if (!stamp) return null;
-                const c = collection.getCount(stamp.id);
-                const ex = collection.getExchanged(stamp.id);
-                return (
-                  <div key={stamp.id} className="relative p-3 rounded-lg border-2 border-amber-300 bg-amber-50 text-center">
-                    <div className="font-mono font-black text-lg text-gray-700 leading-tight">{stamp.teamId}</div>
-                    <div className="font-mono font-black text-3xl text-gray-900 leading-tight">{stamp.code.split("-")[1]}</div>
-                    <div className="absolute top-1 left-1 bg-amber-400 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{c}</div>
-                    {ex > 0 && (
-                      <div className="absolute top-1 right-1 bg-orange-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{ex}</div>
-                    )}
-                    <div className="flex gap-1 mt-2">
-                      <button onClick={() => collection.addOne(stamp.id)} className="flex-1 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">+1</button>
-                      <button onClick={() => collection.removeOne(stamp.id)} className="flex-1 py-1 bg-red-400 text-white text-xs rounded hover:bg-red-500">−1</button>
-                    </div>
-                    <button onClick={() => collection.exchange(stamp.id)} className="w-full mt-1 py-1 bg-orange-100 text-orange-700 text-xs rounded hover:bg-orange-200">Intercambié</button>
+            {teams.map((team) => {
+              const td = duplicateStamps.filter((s) => s && s.teamId === team.id);
+              if (td.length === 0) return null;
+              return (
+                <div key={team.id} className="bg-white rounded-xl shadow-sm border">
+                  <div className="p-3 border-b flex items-center gap-2 bg-amber-50"><span className="text-lg">{team.flag}</span><span className="font-bold text-sm">{team.name}</span><span className="text-xs text-amber-600 ml-auto">{td.length} repetidos</span></div>
+                  <div className="p-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                    {td.map((stamp) => {
+                      if (!stamp) return null;
+                      const c = collection.getCount(stamp.id);
+                      const ex = collection.getExchanged(stamp.id);
+                      return (
+                        <div key={stamp.id} className="relative p-2 rounded-lg border border-amber-200 bg-amber-50 text-center">
+                          <div className="font-mono font-bold text-xs text-gray-500">{stamp.teamId}</div>
+                          <div className="font-mono font-black text-xl text-gray-900">{stamp.code.split("-")[1]}</div>
+                          <div className="absolute top-0.5 right-0.5 bg-amber-400 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">{c}</div>
+                          {ex > 0 && <div className="absolute top-0.5 left-0.5 bg-orange-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{ex}</div>}
+                          <div className="flex gap-1 mt-1">
+                            <button onClick={() => collection.addOne(stamp.id)} className="flex-1 py-0.5 bg-green-500 text-white text-xs rounded hover:bg-green-600">+1</button>
+                            <button onClick={() => collection.removeOne(stamp.id)} className="flex-1 py-0.5 bg-red-400 text-white text-xs rounded hover:bg-red-500">−1</button>
+                          </div>
+                          <button onClick={() => collection.exchange(stamp.id)} className="w-full mt-0.5 py-0.5 bg-orange-100 text-orange-700 text-xs rounded hover:bg-orange-200">Interc</button>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-              {duplicateStamps.length === 0 && <p className="col-span-full text-center text-gray-400 py-8">Sin repetidas</p>}
-            </div>
+                </div>
+              );
+            })}
           </div>
         ) : view === "team" && selectedTeam ? (
           <>
+            <div className="flex items-center gap-2 mb-4">
+              <button
+                onClick={() => {
+                  const idx = teams.findIndex((t) => t.id === selectedTeam);
+                  if (idx > 0) { setSelectedTeam(teams[idx - 1].id); setFilter("all"); }
+                }}
+                className="px-3 py-1.5 rounded text-sm bg-white border hover:bg-gray-50 disabled:opacity-30"
+              >← Anterior</button>
+              <button
+                onClick={() => {
+                  const idx = teams.findIndex((t) => t.id === selectedTeam);
+                  if (idx < teams.length - 1) { setSelectedTeam(teams[idx + 1].id); setFilter("all"); }
+                }}
+                className="px-3 py-1.5 rounded text-sm bg-white border hover:bg-gray-50 disabled:opacity-30"
+              >Siguiente →</button>
+              <span className="text-xs text-gray-400 ml-2">
+                {teams.findIndex((t) => t.id === selectedTeam) + 1} / {teams.length}
+              </span>
+            </div>
             <div className="flex gap-2 mb-4">
               {(["all", "missing", "owned", "wishlisted"] as Filter[]).map((f) => (
                 <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${filter === f ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100 bg-white border"}`}>
