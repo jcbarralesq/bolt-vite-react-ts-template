@@ -39,7 +39,7 @@ export async function getMe() {
   return r.json();
 }
 
-export type StampData = { count: number; exchanged: number };
+export type StampData = { count: number; exchanged: number; for_trade?: boolean };
 
 export async function fetchCollection(): Promise<Record<string, StampData>> {
   const r = await fetch(`${API_URL}/api/collection`, { headers: headers() });
@@ -79,8 +79,50 @@ export async function fetchDuplicates(): Promise<any[]> {
   return data.duplicates;
 }
 
+export async function toggleWishlist(stampId: string): Promise<{ stampId: string; wishlisted: boolean }> {
+  const r = await fetch(`${API_URL}/api/wishlist/toggle`, {
+    method: "POST", headers: headers(), body: JSON.stringify({ stampId }),
+  });
+  if (!r.ok) throw new Error("Error");
+  return r.json();
+}
+
+export async function fetchWishlist(): Promise<Set<string>> {
+  const r = await fetch(`${API_URL}/api/wishlist`, { headers: headers() });
+  if (!r.ok) return new Set();
+  const data = await r.json();
+  return new Set(data.stamps);
+}
+
+export async function toggleForTrade(stampId: string): Promise<{ stampId: string; for_trade: boolean }> {
+  const r = await fetch(`${API_URL}/api/collection/toggle-trade`, {
+    method: "POST", headers: headers(), body: JSON.stringify({ stampId }),
+  });
+  if (!r.ok) throw new Error("Error");
+  return r.json();
+}
+
+export async function fetchPublicProfile(username: string) {
+  const r = await fetch(`${API_URL}/api/public/profile/${username}`);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+export async function getProfileVisibility(): Promise<boolean> {
+  const r = await fetch(`${API_URL}/api/profile/visibility`, { headers: headers() });
+  if (!r.ok) return false;
+  const d = await r.json();
+  return d.public_profile;
+}
+
+export async function setProfileVisibility(isPublic: boolean) {
+  const r = await fetch(`${API_URL}/api/profile/visibility`, {
+    method: "POST", headers: headers(), body: JSON.stringify({ public: isPublic }),
+  });
+  return r.json();
+}
+
 export async function syncCollection(stampIds: string[]) {
-  // Not needed with new API - keeping for reference
   const r = await fetch(`${API_URL}/api/collection/sync`, {
     method: "POST", headers: headers(), body: JSON.stringify({ stamps: stampIds }),
   });

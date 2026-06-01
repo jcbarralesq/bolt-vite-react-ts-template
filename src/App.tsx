@@ -3,9 +3,13 @@ import { useCollection } from "./hooks/useCollection";
 import { Dashboard, StampGrid } from "./components/Dashboard";
 import { teams, stamps, getStampsByTeam } from "./data";
 import { register, login, getMe } from "./api/client";
+import { OfflineBanner } from "./components/OfflineBanner";
+import { QuickTrade } from "./components/QuickTrade";
+import { Statistics } from "./components/Statistics";
+import { getProfileVisibility, setProfileVisibility } from "./api/client";
 
-type View = "dashboard" | "team" | "duplicates";
-type Filter = "all" | "owned" | "missing";
+type View = "dashboard" | "team" | "duplicates" | "wishlist" | "trade" | "stats";
+type Filter = "all" | "owned" | "missing" | "wishlisted";
 
 export default function App() {
   const [userId, setUserId] = useState<number | null>(() => {
@@ -21,6 +25,7 @@ export default function App() {
   const [authPass, setAuthPass] = useState("");
   const [authError, setAuthError] = useState("");
   const [checking, setChecking] = useState(true);
+  const [publicProfile, setPublicProfile] = useState(false);
 
   const collection = useCollection(userId);
   const [view, setView] = useState<View>("dashboard");
@@ -30,8 +35,10 @@ export default function App() {
 
   useEffect(() => {
     getMe().then((u) => {
-      if (u) { setUserId(u.userId); setUsername(u.username); }
-      else { localStorage.removeItem("panini-user"); localStorage.removeItem("panini-token"); setUserId(null); setUsername(""); }
+      if (u) {
+        setUserId(u.userId); setUsername(u.username);
+        getProfileVisibility().then(setPublicProfile);
+      } else { localStorage.removeItem("panini-user"); localStorage.removeItem("panini-token"); setUserId(null); setUsername(""); }
       setChecking(false);
     });
   }, []);
@@ -98,6 +105,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <OfflineBanner onSync={collection.syncOffline} />
       <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -121,11 +129,27 @@ export default function App() {
         </div>
         <div className="max-w-6xl mx-auto px-4 pb-2 flex gap-1">
           <button onClick={() => setView("dashboard")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "dashboard" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Equipos</button>
+          <button onClick={() => setView("wishlist")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "wishlist" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+            Busco {collection.wishlist.size > 0 && `(${collection.wishlist.size})`}
+          </button>
           {collection.duplicates.length > 0 && (
             <button onClick={() => setView("duplicates")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "duplicates" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
               Repetidas ({collection.duplicates.length})
             </button>
           )}
+          <button onClick={() => setView("trade")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "trade" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Intercambio</button>
+          <button onClick={() => setView("stats")} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${view === "stats" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>Estadísticas</button>
+          <button
+            onClick={async () => {
+              const newVal = !publicProfile;
+              setPublicProfile(newVal);
+              try { await setProfileVisibility(newVal); } catch {}
+            }}
+            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${publicProfile ? "bg-blue-500 text-white" : "text-gray-400 hover:bg-gray-100"}`}
+            title={publicProfile ? "Perfil público activo" : "Perfil privado"}
+          >
+            {publicProfile ? "🌐" : "🔒"}
+          </button>
           <div className="relative ml-auto">
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." className="pl-8 pr-3 py-1.5 text-sm border rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-green-300" />
             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
@@ -157,6 +181,29 @@ export default function App() {
               {searchedStamps?.length === 0 && <p className="col-span-full text-center text-gray-400 py-8">No se encontraron estampas</p>}
             </div>
           </div>
+        ) : view === "wishlist" ? (
+          <div className="bg-white rounded-xl shadow-sm border">
+            <div className="p-4 border-b"><h2 className="text-lg font-bold text-gray-800">Busco ({collection.wishlist.size})</h2></div>
+            <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {collection.wishlistStamps.map((stamp) => {
+                if (!stamp) return null;
+                const c = collection.getCount(stamp.id);
+                return (
+                  <div key={stamp.id} className={`relative p-3 rounded-lg border-2 text-center ${c > 0 ? "border-green-400 bg-green-50" : "border-blue-300 bg-blue-50"}`}>
+                    <div className="font-mono font-black text-lg text-gray-700 leading-tight">{stamp.teamId}</div>
+                    <div className="font-mono font-black text-3xl text-gray-900 leading-tight">{stamp.code.split("-")[1]}</div>
+                    {c > 0 ? <span className="text-xs text-green-600">Ya la tienes</span> : <span className="text-xs text-blue-600">Te falta</span>}
+                    <button onClick={() => collection.toggleWishlist(stamp.id)} className="mt-1 text-xs text-red-400 hover:text-red-600">Quitar</button>
+                  </div>
+                );
+              })}
+              {collection.wishlistStamps.length === 0 && <p className="col-span-full text-center text-gray-400 py-8">No tienes estampas en tu lista de búsqueda</p>}
+            </div>
+          </div>
+        ) : view === "trade" ? (
+          <QuickTrade owned={collection.owned} getCount={collection.getCount} addOne={collection.addOne} removeOne={collection.removeOne} />
+        ) : view === "stats" ? (
+          <Statistics uniqueOwned={collection.uniqueOwned} totalCopies={collection.totalCopies} totalExchanged={collection.totalExchanged} progress={collection.progress} ownedByTeam={collection.ownedByTeam} totalByTeam={collection.totalByTeam} />
         ) : view === "duplicates" ? (
           <div className="bg-white rounded-xl shadow-sm border">
             <div className="p-4 border-b flex items-center justify-between">
@@ -190,9 +237,9 @@ export default function App() {
         ) : view === "team" && selectedTeam ? (
           <>
             <div className="flex gap-2 mb-4">
-              {(["all", "missing", "owned"] as Filter[]).map((f) => (
+              {(["all", "missing", "owned", "wishlisted"] as Filter[]).map((f) => (
                 <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${filter === f ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100 bg-white border"}`}>
-                  {f === "all" ? "Todas" : f === "missing" ? "Faltantes" : "Obtenidas"}
+                  {f === "all" ? "Todas" : f === "missing" ? "Faltantes" : f === "wishlisted" ? "Busco" : "Obtenidas"}
                 </button>
               ))}
               <div className="ml-auto text-sm text-gray-500 flex items-center gap-2">
@@ -209,6 +256,10 @@ export default function App() {
               onExchange={collection.exchange}
               getCount={collection.getCount}
               getExchanged={collection.getExchanged}
+              isWishlisted={collection.isWishlisted}
+              isForTrade={collection.isForTrade}
+              toggleWishlist={collection.toggleWishlist}
+              toggleForTrade={collection.toggleForTrade}
               filter={filter}
               onBack={() => { setView("dashboard"); setSelectedTeam(null); }}
             />

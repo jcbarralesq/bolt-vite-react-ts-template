@@ -119,17 +119,22 @@ interface StampGridProps {
   onExchange: (stampId: string) => void;
   getCount: (stampId: string) => number;
   getExchanged: (stampId: string) => number;
-  filter: "all" | "owned" | "missing";
+  isWishlisted: (stampId: string) => boolean;
+  isForTrade: (stampId: string) => boolean;
+  toggleWishlist: (stampId: string) => void;
+  toggleForTrade: (stampId: string) => void;
+  filter: "all" | "owned" | "missing" | "wishlisted";
   onBack: () => void;
 }
 
-export function StampGrid({ teamId, owned, onAdd, onRemove, onExchange, getCount, getExchanged, filter, onBack }: StampGridProps) {
+export function StampGrid({ teamId, owned, onAdd, onRemove, onExchange, getCount, getExchanged, isWishlisted, isForTrade, toggleWishlist, toggleForTrade, filter, onBack }: StampGridProps) {
   const [selectedStamp, setSelectedStamp] = useState<string | null>(null);
   const teamStamps = getStampsByTeam(teamId);
   const filteredStamps = teamStamps.filter((s) => {
     const c = getCount(s.id);
     if (filter === "owned") return c > 0;
     if (filter === "missing") return c === 0;
+    if (filter === "wishlisted") return isWishlisted(s.id);
     return true;
   });
 
@@ -150,6 +155,8 @@ export function StampGrid({ teamId, owned, onAdd, onRemove, onExchange, getCount
               stamp={stamp}
               count={getCount(stamp.id)}
               exchanged={getExchanged(stamp.id)}
+              isWishlisted={isWishlisted(stamp.id)}
+              isForTrade={isForTrade(stamp.id)}
               onAdd={onAdd}
               onRemove={onRemove}
               onExchange={onExchange}
@@ -199,6 +206,22 @@ export function StampGrid({ teamId, owned, onAdd, onRemove, onExchange, getCount
                       Intercambié una
                     </button>
                   )}
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => toggleWishlist(s.id)}
+                      className={`flex-1 py-1.5 rounded text-xs font-medium ${isWishlisted(s.id) ? "bg-blue-500 text-white" : "bg-blue-50 text-blue-600"}`}
+                    >
+                      {isWishlisted(s.id) ? "🔖 Busco" : "Agregar a Busco"}
+                    </button>
+                    {c > 1 && (
+                      <button
+                        onClick={() => toggleForTrade(s.id)}
+                        className={`flex-1 py-1.5 rounded text-xs font-medium ${isForTrade(s.id) ? "bg-green-500 text-white" : "bg-green-50 text-green-600"}`}
+                      >
+                        {isForTrade(s.id) ? "🔄 Ofrezco" : "Ofrecer"}
+                      </button>
+                    )}
+                  </div>
                   <button onClick={() => setSelectedStamp(null)} className="mt-3 text-xs text-gray-400">Cerrar</button>
                 </>
               );
@@ -211,48 +234,28 @@ export function StampGrid({ teamId, owned, onAdd, onRemove, onExchange, getCount
 }
 
 function StampCard({
-  stamp, count, exchanged, onAdd, onRemove, onExchange, isSelected, onSelect,
+  stamp, count, exchanged, isWishlisted, isForTrade, onAdd, onRemove, onExchange, isSelected, onSelect,
 }: {
   stamp: { id: string; teamId: string; code: string };
-  count: number; exchanged: number;
+  count: number; exchanged: number; isWishlisted: boolean; isForTrade: boolean;
   onAdd: (id: string) => void; onRemove: (id: string) => void;
   onExchange: (id: string) => void;
   isSelected: boolean; onSelect: (id: string | null) => void;
 }) {
   const handleClick = () => {
-    if (count > 0) {
-      onSelect(stamp.id);
-    } else {
-      onAdd(stamp.id);
-    }
+    if (count > 0) onSelect(stamp.id);
+    else onAdd(stamp.id);
   };
 
   return (
-    <button
-      onClick={handleClick}
-      className={`relative p-3 rounded-lg border-2 text-center transition-all hover:shadow-md ${
-        count > 0 ? "border-green-400 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"
-      }`}
-    >
+    <button onClick={handleClick} className={`relative p-3 rounded-lg border-2 text-center transition-all hover:shadow-md ${count > 0 ? "border-green-400 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
       <div className="font-mono font-black text-lg text-gray-700 leading-tight">{stamp.teamId}</div>
-      <div className="font-mono font-black text-3xl text-gray-900 leading-tight">
-        {stamp.code.split("-")[1]}
-      </div>
-      {count > 1 && (
-        <div className="absolute top-1 left-1 bg-amber-400 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-          {count}
-        </div>
-      )}
-      {exchanged > 0 && (
-        <div className="absolute top-1 right-1 bg-orange-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-          {exchanged}
-        </div>
-      )}
-      {count > 0 && exchanged === 0 && (
-        <div className="absolute top-1 right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-          <span className="text-white text-xs">✓</span>
-        </div>
-      )}
+      <div className="font-mono font-black text-3xl text-gray-900 leading-tight">{stamp.code.split("-")[1]}</div>
+      {count > 1 && <div className="absolute top-1 left-1 bg-amber-400 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{count}</div>}
+      {isWishlisted && <div className="absolute bottom-1 left-1 text-blue-500 text-xs">🔖</div>}
+      {isForTrade && <div className="absolute bottom-1 right-1 text-green-500 text-xs">🔄</div>}
+      {exchanged > 0 && <div className="absolute top-1 right-1 bg-orange-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">{exchanged}</div>}
+      {count > 0 && exchanged === 0 && !isForTrade && <div className="absolute top-1 right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"><span className="text-white text-xs">✓</span></div>}
     </button>
   );
 }
